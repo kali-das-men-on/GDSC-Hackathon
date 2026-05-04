@@ -12,6 +12,7 @@ const ANGEL_SFX      = "files/Angel - Sound Effect (HD).mp3";
 // ── STATE ────────────────────────────────────
 let conversationHistory = [];
 let isBusy = false;
+let ambientAngel = null; 
 
 // ── DOM REFS ─────────────────────────────────
 const garyImg    = document.getElementById("gary-img");
@@ -25,9 +26,16 @@ const garyAudio  = document.getElementById("gary-audio");
 (function init() {
   spawnStars();
 
-  // preload angel sfx so it's ready instantly
-  const preload = new Audio(ANGEL_SFX);
-  preload.preload = "auto";
+  // Ambient angel audio — loops until user sends first message
+  ambientAngel = new Audio(ANGEL_SFX);
+  ambientAngel.loop = true;
+  ambientAngel.volume = 0.4;
+  ambientAngel.play().catch(() => {
+    // Autoplay blocked — play on first user interaction instead
+    document.addEventListener("click", () => {
+      ambientAngel.play().catch(() => {});
+    }, { once: true });
+  });
 
   userInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -47,6 +55,12 @@ async function sendToGary() {
     return;
   }
 
+  if (ambientAngel) {
+    ambientAngel.pause();
+    ambientAngel.currentTime = 0;
+    ambientAngel = null;
+  }
+  
   isBusy = true;
   sendBtn.disabled = true;
   userInput.value = "";
