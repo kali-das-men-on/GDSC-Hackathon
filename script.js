@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────
 
 // ── CONFIG ──────────────────────────────────
-const GEMINI_KEY     = "AIzaSyDUeEJLwxlXesvV5FSNU27DocRSQFZhHNM";
+const GEMINI_KEY     = "AIzaSyCLanfrOb2F1g-V4yIuCr9MLGyOFcT5mxQ";
 const ELEVEN_KEY     = "sk_c03716bac343d6897dfe072f7bfddbbbaa842c5dd3723d1d";
 const ELEVEN_VOICE   = "bFrjFL4nlpeYNwNRhXxq";
 
