@@ -7,7 +7,7 @@
 
 const GARY_IMG_IDLE  = "files/output-onlinegiftools.gif";
 const GARY_IMG_SPEAK = "files/Blunt-image.png";
-const ANGEL_SFX      = "files/Angel - Sound Effect (HD).mp3";
+const ANGEL_SFX      = "files/Angel_Sound_Effect.mp3";
 
 // ── STATE ────────────────────────────────────
 let conversationHistory = [];
