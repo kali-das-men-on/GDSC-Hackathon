@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gary — The Sacred Rock</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="stars" id="stars"></div>
+
+  <div class="container">
+
+    <header>
+      <div class="title-rune">☽ ✦ ☾</div>
+      <h1>G A R Y</h1>
+      <p class="subtitle">The Sacred Rock &nbsp;·&nbsp; Keeper of Ancient Smoke</p>
+    </header>
+
+    <main>
+      <!-- Gary's Visual -->
+      <div class="gary-stage">
+        <div class="gary-halo"></div>
+        <div class="gary-glow"></div>
+        <img
+          id="gary-img"
+          src="output-onlinegiftools.gif"
+          alt="Gary the Sacred Rock"
+          class="gary-img thinking"
+        />
+        <div class="gary-status" id="gary-status">Gary is… contemplating.</div>
+      </div>
+
+      <!-- Chat Log -->
+      <div class="chat-log" id="chat-log">
+        <div class="message gary-message">
+          <span class="speaker">Gary</span>
+          <p>…you have found me. Ask, and perhaps I shall answer. Or perhaps I will just think about sediment for a while.</p>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="input-area">
+        <textarea
+          id="user-input"
+          placeholder="Speak your query to the rock…"
+          rows="2"
+        ></textarea>
+        <button id="send-btn" onclick="sendToGary()">
+          <span>Offer to Gary</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+
+    </main>
+
+  </div>
+
+  <audio id="gary-audio"></audio>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+/* ─── GARY: THE SACRED ROCK ─── */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300;1,400&display=swap');
+
+:root {
+  --bg:        #0a0805;
+  --bg2:       #110e09;
+  --surface:   #1a1510;
+  --border:    #3a2e1a;
+  --gold:      #c9933a;
+  --gold-dim:  #7a5520;
+  --amber:     #e8a94a;
+  --smoke:     #8a8070;
+  --text:      #e2d5b8;
+  --text-dim:  #7a6e58;
+  --gary-glow: rgba(201, 147, 58, 0.18);
+  --radius:    12px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 18px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ── Stars bg ── */
+.stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  animation: twinkle var(--d, 3s) ease-in-out infinite alternate;
+  opacity: var(--o, 0.4);
+}
+@keyframes twinkle {
+  from { opacity: var(--o, 0.4); transform: scale(1); }
+  to   { opacity: calc(var(--o, 0.4) * 0.3); transform: scale(0.7); }
+}
+
+/* ── Layout ── */
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* ── Header ── */
+header {
+  text-align: center;
+  padding-top: 1rem;
+}
+.title-rune {
+  font-size: 1rem;
+  letter-spacing: 0.6em;
+  color: var(--gold-dim);
+  margin-bottom: 0.4rem;
+}
+h1 {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: clamp(2.2rem, 8vw, 3.8rem);
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  color: var(--gold);
+  text-shadow:
+    0 0 40px rgba(201,147,58,0.5),
+    0 0 80px rgba(201,147,58,0.2);
+  line-height: 1.1;
+}
+.subtitle {
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  color: var(--smoke);
+  text-transform: uppercase;
+  margin-top: 0.5rem;
+}
+
+/* ── Gary Stage ── */
+.gary-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1.5rem 0;
+}
+.gary-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,147,58,0.12) 0%, transparent 70%);
+  pointer-events: none;
+  animation: pulse-halo 4s ease-in-out infinite;
+}
+@keyframes pulse-halo {
+  0%, 100% { opacity: 0.6; transform: translate(-50%,-60%) scale(1); }
+  50%       { opacity: 1;   transform: translate(-50%,-60%) scale(1.08); }
+}
+.gary-glow {
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 200px; height: 30px;
+  background: radial-gradient(ellipse, rgba(201,147,58,0.25) 0%, transparent 70%);
+  filter: blur(8px);
+  pointer-events: none;
+}
+.gary-img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  box-shadow:
+    0 0 0 6px rgba(201,147,58,0.08),
+    0 0 40px rgba(201,147,58,0.2),
+    inset 0 0 20px rgba(0,0,0,0.4);
+  transition: box-shadow 0.5s ease, border-color 0.5s ease;
+  background: #0a0805;
+}
+.gary-img.speaking {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 0 6px rgba(201,147,58,0.2),
+    0 0 60px rgba(201,147,58,0.5),
+    0 0 120px rgba(201,147,58,0.2);
+  animation: sacred-pulse 1.2s ease-in-out infinite alternate;
+}
+@keyframes sacred-pulse {
+  from { filter: brightness(1); }
+  to   { filter: brightness(1.15) saturate(1.2); }
+}
+.gary-status {
+  font-style: italic;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  transition: color 0.4s;
+  min-height: 1.4em;
+}
+.gary-status.speaking-status { color: var(--amber); }
+
+/* ── Chat Log ── */
+.chat-log {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  max-height: 360px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+.chat-log::-webkit-scrollbar { width: 4px; }
+.chat-log::-webkit-scrollbar-track { background: transparent; }
+.chat-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.speaker {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+}
+.gary-message .speaker { color: var(--gold); }
+.message p {
+  font-size: 1rem;
+  color: var(--text);
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  border-left: 2px solid var(--border);
+  line-height: 1.65;
+}
+.gary-message p {
+  border-left-color: var(--gold-dim);
+  background: rgba(201,147,58,0.04);
+  font-style: italic;
+}
+.user-message p {
+  border-left-color: #3a3530;
+}
+
+/* Loading dots */
+.loading-dots span {
+  display: inline-block;
+  animation: dot-bounce 1.4s ease-in-out infinite;
+  font-style: normal;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40%           { transform: translateY(-6px); }
+}
+
+/* ── Input ── */
+.input-area {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+textarea {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Crimson Pro', serif;
+  font-size: 1rem;
+  padding: 0.85rem 1rem;
+  resize: none;
+  outline: none;
+  transition: border-color 0.3s;
+  line-height: 1.5;
+}
+textarea:focus { border-color: var(--gold-dim); }
+textarea::placeholder { color: var(--text-dim); font-style: italic; }
+
+#send-btn {
+  background: linear-gradient(135deg, #8a5f20, #c9933a);
+  border: none;
+  border-radius: var(--radius);
+  color: #fff8e8;
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 0.85rem 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  white-space: nowrap;
+  box-shadow: 0 0 20px rgba(201,147,58,0.2);
+}
+#send-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 24px rgba(201,147,58,0.35); }
+#send-btn:active { transform: translateY(0); }
+#send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+#send-btn svg { width: 16px; height: 16px; }
+
+/* ── Enter key shortcut hint ── */
+.hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
