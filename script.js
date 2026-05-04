@@ -1,18 +1,13 @@
 // ─────────────────────────────────────────────
 //  GARY — THE SACRED ROCK  |  script.js
-//  Flow: user input → /api/gemini → /api/tts
-//        → angel sfx → gary speaks → back to idle
-//  API keys live in .env on the server. Never here.
 // ─────────────────────────────────────────────
 
 const GARY_IMG_IDLE  = "files/output-onlinegiftools.gif";
 const GARY_IMG_SPEAK = "files/Blunt-image.png";
-const ANGEL_SFX      = "files/Angel_Sound_Effect.mp3";
 
 // ── STATE ────────────────────────────────────
 let conversationHistory = [];
 let isBusy = false;
-let ambientAngel = null; 
 
 // ── DOM REFS ─────────────────────────────────
 const garyImg    = document.getElementById("gary-img");
@@ -21,19 +16,19 @@ const chatLog    = document.getElementById("chat-log");
 const userInput  = document.getElementById("user-input");
 const sendBtn    = document.getElementById("send-btn");
 const garyAudio  = document.getElementById("gary-audio");
+const angelAudio = document.getElementById("angel-audio");
 
 // ── INIT ─────────────────────────────────────
 (function init() {
   spawnStars();
 
-  // Ambient angel audio — loops until user sends first message
-  ambientAngel = new Audio(ANGEL_SFX);
-  ambientAngel.loop = true;
-  ambientAngel.volume = 0.4;
-  ambientAngel.play().catch(() => {
-    // Autoplay blocked — play on first user interaction instead
+  angelAudio.loop   = true;
+  angelAudio.volume = 0.4;
+
+  // Try autoplay; fall back to first click
+  angelAudio.play().catch(() => {
     document.addEventListener("click", () => {
-      ambientAngel.play().catch(() => {});
+      angelAudio.play().catch(() => {});
     }, { once: true });
   });
 
@@ -55,12 +50,12 @@ async function sendToGary() {
     return;
   }
 
-  if (ambientAngel) {
-    ambientAngel.pause();
-    ambientAngel.currentTime = 0;
-    ambientAngel = null;
+  // Stop ambient angel the moment user sends anything
+  if (!angelAudio.paused) {
+    angelAudio.pause();
+    angelAudio.currentTime = 0;
   }
-  
+
   isBusy = true;
   sendBtn.disabled = true;
   userInput.value = "";
@@ -70,7 +65,6 @@ async function sendToGary() {
   const loadingEl = appendLoadingMessage();
 
   try {
-    // ── 1. Get Gary's reply from Gemini via server ──
     const geminiRes = await fetch("/api/gemini", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -83,14 +77,11 @@ async function sendToGary() {
     }
 
     const { reply, newUserEntry, newModelEntry } = await geminiRes.json();
-
-    // Update local history
     conversationHistory.push(newUserEntry, newModelEntry);
 
     loadingEl.remove();
     appendMessage("Gary", reply, "gary");
 
-    // ── 2. Get TTS audio from ElevenLabs via server ──
     setGaryState("thinking", "Gary is… finding his voice.");
     const ttsRes = await fetch("/api/tts", {
       method: "POST",
@@ -98,13 +89,9 @@ async function sendToGary() {
       body: JSON.stringify({ text: reply })
     });
 
-    if (!ttsRes.ok) {
-      throw new Error("Gary lost his voice.");
-    }
+    if (!ttsRes.ok) throw new Error("Gary lost his voice.");
 
     const audioBlob = await ttsRes.blob();
-
-    // ── 3. Angel SFX first, then Gary speaks ────────
     await playSequence(audioBlob);
 
   } catch (err) {
@@ -119,23 +106,25 @@ async function sendToGary() {
 }
 
 // ── AUDIO SEQUENCE ────────────────────────────
-// 1. Play angel sfx
-// 2. When sfx ends → swap to blunt image + play gary's TTS
-// 3. When TTS ends → swap back to idle gif
+// 1. Play angel sfx (one-shot, no loop)
+// 2. When sfx ends → Gary speaks
+// 3. When Gary ends → back to idle
 function playSequence(garyBlob) {
   return new Promise((resolve) => {
 
-    // ── Angel SFX ──
-    const angel = new Audio(ANGEL_SFX);
+    // Use the angel element but one-shot (no loop)
+    angelAudio.loop          = false;
+    angelAudio.volume        = 0.8;
+    angelAudio.currentTime   = 0;
 
-    angel.onended = () => {
-      // ── Gary speaks ──
+    const afterAngel = () => {
+      angelAudio.removeEventListener("ended", afterAngel);
+      angelAudio.removeEventListener("error", afterAngel);
+
       const garyUrl = URL.createObjectURL(garyBlob);
       garyAudio.src = garyUrl;
 
-      garyAudio.onplay = () => {
-        setGaryState("speaking", "Gary speaks…");
-      };
+      garyAudio.onplay = () => setGaryState("speaking", "Gary speaks…");
 
       garyAudio.onended = () => {
         URL.revokeObjectURL(garyUrl);
@@ -155,20 +144,10 @@ function playSequence(garyBlob) {
       });
     };
 
-    angel.onerror = () => {
-      // sfx failed — just play gary directly
-      console.warn("Angel sfx failed, skipping.");
-      const garyUrl = URL.createObjectURL(garyBlob);
-      garyAudio.src = garyUrl;
-      garyAudio.onplay  = () => setGaryState("speaking", "Gary speaks…");
-      garyAudio.onended = () => { URL.revokeObjectURL(garyUrl); setGaryState("thinking", "Gary is… contemplating."); resolve(); };
-      garyAudio.onerror = () => { URL.revokeObjectURL(garyUrl); setGaryState("thinking", "Gary is… silent."); resolve(); };
-      garyAudio.play().catch(() => resolve());
-    };
+    angelAudio.addEventListener("ended", afterAngel, { once: true });
+    angelAudio.addEventListener("error", afterAngel, { once: true });
 
-    angel.play().catch(() => {
-      angel.onerror?.();
-    });
+    angelAudio.play().catch(() => afterAngel());
   });
 }
 
