@@ -9,8 +9,8 @@ const ELEVEN_KEY     = "sk_c03716bac343d6897dfe072f7bfddbbbaa842c5dd3723d1d";
 const ELEVEN_VOICE   = "bFrjFL4nlpeYNwNRhXxq";
 
 const GEMINI_MODEL   = "gemini-2.0-flash";
-const GARY_IMG_IDLE  = "output-onlinegiftools.gif";   // thinking / idle gif
-const GARY_IMG_SPEAK = "Blunt-image.png";             // speaking image
+const GARY_IMG_IDLE  = "files/output-onlinegiftools.gif";   // thinking / idle gif
+const GARY_IMG_SPEAK = "files/Blunt-image.png";             // speaking image
 
 // ── STATE ────────────────────────────────────
 let garySystemPrompt = "";   // loaded from prompt.txt
