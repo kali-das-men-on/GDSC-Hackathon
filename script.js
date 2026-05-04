@@ -1,20 +1,16 @@
 // ─────────────────────────────────────────────
 //  GARY — THE SACRED ROCK  |  script.js
-//  Flow: user input → Gemini (with prompt.txt) → ElevenLabs TTS → audio
+//  Flow: user input → /api/gemini → /api/tts
+//        → angel sfx → gary speaks → back to idle
+//  API keys live in .env on the server. Never here.
 // ─────────────────────────────────────────────
 
-// ── CONFIG ──────────────────────────────────
-const GEMINI_KEY     = "AIzaSyCLanfrOb2F1g-V4yIuCr9MLGyOFcT5mxQ";
-const ELEVEN_KEY     = "sk_c03716bac343d6897dfe072f7bfddbbbaa842c5dd3723d1d";
-const ELEVEN_VOICE   = "bFrjFL4nlpeYNwNRhXxq";
-
-const GEMINI_MODEL   = "gemini-2.0-flash";
-const GARY_IMG_IDLE  = "output-onlinegiftools.gif";   // thinking / idle gif
-const GARY_IMG_SPEAK = "Blunt-image.png";             // speaking image
+const GARY_IMG_IDLE  = "files/output-onlinegiftools.gif";
+const GARY_IMG_SPEAK = "files/Blunt-image.png";
+const ANGEL_SFX      = "files/Angel - Sound Effect (HD).mp3";
 
 // ── STATE ────────────────────────────────────
-let garySystemPrompt = "";   // loaded from prompt.txt
-let conversationHistory = []; // keeps multi-turn context for Gemini
+let conversationHistory = [];
 let isBusy = false;
 
 // ── DOM REFS ─────────────────────────────────
@@ -26,11 +22,13 @@ const sendBtn    = document.getElementById("send-btn");
 const garyAudio  = document.getElementById("gary-audio");
 
 // ── INIT ─────────────────────────────────────
-(async function init() {
+(function init() {
   spawnStars();
-  await loadSystemPrompt();
 
-  // Enter to send (Shift+Enter for newline)
+  // preload angel sfx so it's ready instantly
+  const preload = new Audio(ANGEL_SFX);
+  preload.preload = "auto";
+
   userInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -39,60 +37,66 @@ const garyAudio  = document.getElementById("gary-audio");
   });
 })();
 
-// ── LOAD prompt.txt ──────────────────────────
-async function loadSystemPrompt() {
-  try {
-    const res = await fetch("prompt.txt");
-    if (!res.ok) throw new Error("prompt.txt not found");
-    garySystemPrompt = (await res.text()).trim();
-    console.log("✅ Gary's prompt loaded.");
-  } catch (err) {
-    console.warn("⚠️ Could not load prompt.txt. Using fallback prompt.");
-    garySystemPrompt = "You are Gary, an ancient sacred rock. You are wise, cryptic, and a little stoned. Keep answers under 4 sentences.";
-  }
-}
-
-// ── MAIN SEND FUNCTION ───────────────────────
+// ── MAIN SEND ────────────────────────────────
 async function sendToGary() {
   if (isBusy) return;
 
   const userText = userInput.value.trim();
-  if (!userText) return;
-
-  const geminiKey = GEMINI_KEY;
-  const elevenKey = ELEVEN_KEY;
-  const voiceId   = ELEVEN_VOICE;
+  if (!userText) {
+    appendMessage("Gary", "gary is also not saying anything. you have found common ground.", "gary");
+    return;
+  }
 
   isBusy = true;
   sendBtn.disabled = true;
   userInput.value = "";
 
-  // Show user message
   appendMessage("You", userText, "user");
-
-  // Gary: thinking state
   setGaryState("thinking", "Gary is… consulting the cosmos.");
-
-  // Show loading indicator in chat
   const loadingEl = appendLoadingMessage();
 
   try {
-    // ── 1. Call Gemini ──────────────────────
-    const garyReply = await callGemini(userText, geminiKey);
+    // ── 1. Get Gary's reply from Gemini via server ──
+    const geminiRes = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history: conversationHistory, userText })
+    });
+
+    if (!geminiRes.ok) {
+      const err = await geminiRes.json().catch(() => ({}));
+      throw new Error(err.error || `server error ${geminiRes.status}`);
+    }
+
+    const { reply, newUserEntry, newModelEntry } = await geminiRes.json();
+
+    // Update local history
+    conversationHistory.push(newUserEntry, newModelEntry);
+
     loadingEl.remove();
-    appendMessage("Gary", garyReply, "gary");
+    appendMessage("Gary", reply, "gary");
 
-    // ── 2. Call ElevenLabs TTS ──────────────
+    // ── 2. Get TTS audio from ElevenLabs via server ──
     setGaryState("thinking", "Gary is… finding his voice.");
-    const audioBlob = await callElevenLabs(garyReply, elevenKey, voiceId);
+    const ttsRes = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: reply })
+    });
 
-    // ── 3. Play audio + swap to blunt image ─
-    await playGaryAudio(audioBlob);
+    if (!ttsRes.ok) {
+      throw new Error("Gary lost his voice.");
+    }
+
+    const audioBlob = await ttsRes.blob();
+
+    // ── 3. Angel SFX first, then Gary speaks ────────
+    await playSequence(audioBlob);
 
   } catch (err) {
     loadingEl.remove();
-    appendMessage("Gary", `…${err.message}. The rock is briefly unavailable.`, "gary");
-    setGaryState("thinking", "Gary is… recovering from a disturbance.");
+    appendMessage("Gary", `…${err.message}. the rock is briefly unavailable.`, "gary");
+    setGaryState("thinking", "Gary is… recovering.");
     console.error(err);
   }
 
@@ -100,130 +104,61 @@ async function sendToGary() {
   sendBtn.disabled = false;
 }
 
-// ── GEMINI API ───────────────────────────────
-async function callGemini(userText, apiKey) {
-  // Build the message array. We prepend system context as the first user turn
-  // (Gemini doesn't have a system role in the same way, so we bake it in).
-  const systemPreamble = `${garySystemPrompt}\n\nNow respond to the following as Gary:`;
-
-  // For multi-turn: include history. First call injects system prompt.
-  const messages = [];
-
-  if (conversationHistory.length === 0) {
-    // First turn: inject system prompt + first user message together
-    messages.push({
-      role: "user",
-      parts: [{ text: `${systemPreamble}\n\n${userText}` }]
-    });
-  } else {
-    // Subsequent turns: full history, then new user message
-    messages.push(...conversationHistory);
-    messages.push({
-      role: "user",
-      parts: [{ text: userText }]
-    });
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-
-  const body = {
-    contents: messages,
-    generationConfig: {
-      temperature: 0.95,
-      maxOutputTokens: 300
-    }
-  };
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Gemini error: ${err?.error?.message || res.status}`);
-  }
-
-  const data = await res.json();
-  const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  if (!replyText) throw new Error("Gemini returned an empty vision");
-
-  // Update history for next turn
-  conversationHistory.push({
-    role: "user",
-    parts: [{ text: conversationHistory.length === 0 ? `${systemPreamble}\n\n${userText}` : userText }]
-  });
-  conversationHistory.push({
-    role: "model",
-    parts: [{ text: replyText }]
-  });
-
-  return replyText;
-}
-
-// ── ELEVENLABS TTS API ───────────────────────
-async function callElevenLabs(text, apiKey, voiceId) {
-  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "xi-api-key": apiKey,
-      "Content-Type": "application/json",
-      "Accept": "audio/mpeg"
-    },
-    body: JSON.stringify({
-      text: text,
-      model_id: "eleven_monolingual_v1",
-      voice_settings: {
-        stability: 0.45,
-        similarity_boost: 0.82,
-        style: 0.3,
-        use_speaker_boost: true
-      }
-    })
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => res.status);
-    throw new Error(`ElevenLabs error: ${errText}`);
-  }
-
-  return await res.blob();
-}
-
-// ── AUDIO PLAYBACK + IMAGE SWAP ──────────────
-function playGaryAudio(blob) {
+// ── AUDIO SEQUENCE ────────────────────────────
+// 1. Play angel sfx
+// 2. When sfx ends → swap to blunt image + play gary's TTS
+// 3. When TTS ends → swap back to idle gif
+function playSequence(garyBlob) {
   return new Promise((resolve) => {
-    const audioUrl = URL.createObjectURL(blob);
-    garyAudio.src = audioUrl;
 
-    garyAudio.onplay = () => {
-      setGaryState("speaking", "Gary speaks…");
+    // ── Angel SFX ──
+    const angel = new Audio(ANGEL_SFX);
+
+    angel.onended = () => {
+      // ── Gary speaks ──
+      const garyUrl = URL.createObjectURL(garyBlob);
+      garyAudio.src = garyUrl;
+
+      garyAudio.onplay = () => {
+        setGaryState("speaking", "Gary speaks…");
+      };
+
+      garyAudio.onended = () => {
+        URL.revokeObjectURL(garyUrl);
+        setGaryState("thinking", "Gary is… contemplating.");
+        resolve();
+      };
+
+      garyAudio.onerror = () => {
+        URL.revokeObjectURL(garyUrl);
+        setGaryState("thinking", "Gary is… silent.");
+        resolve();
+      };
+
+      garyAudio.play().catch(() => {
+        setGaryState("thinking", "Gary whispers — allow audio in your browser.");
+        resolve();
+      });
     };
 
-    garyAudio.onended = () => {
-      URL.revokeObjectURL(audioUrl);
-      setGaryState("thinking", "Gary is… contemplating.");
-      resolve();
+    angel.onerror = () => {
+      // sfx failed — just play gary directly
+      console.warn("Angel sfx failed, skipping.");
+      const garyUrl = URL.createObjectURL(garyBlob);
+      garyAudio.src = garyUrl;
+      garyAudio.onplay  = () => setGaryState("speaking", "Gary speaks…");
+      garyAudio.onended = () => { URL.revokeObjectURL(garyUrl); setGaryState("thinking", "Gary is… contemplating."); resolve(); };
+      garyAudio.onerror = () => { URL.revokeObjectURL(garyUrl); setGaryState("thinking", "Gary is… silent."); resolve(); };
+      garyAudio.play().catch(() => resolve());
     };
 
-    garyAudio.onerror = () => {
-      URL.revokeObjectURL(audioUrl);
-      setGaryState("thinking", "Gary is… silent.");
-      resolve();
-    };
-
-    garyAudio.play().catch(() => {
-      // Autoplay blocked — still show the image swap, resolve anyway
-      setGaryState("thinking", "Gary whispers — allow audio in your browser.");
-      resolve();
+    angel.play().catch(() => {
+      angel.onerror?.();
     });
   });
 }
 
-// ── GARY STATE: thinking | speaking ──────────
+// ── GARY STATE ───────────────────────────────
 function setGaryState(state, statusText) {
   garyStatus.textContent = statusText;
 
@@ -273,8 +208,6 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-
-
 // ── STAR FIELD ───────────────────────────────
 function spawnStars() {
   const container = document.getElementById("stars");
@@ -284,11 +217,11 @@ function spawnStars() {
     const size = Math.random() * 2 + 0.5;
     s.style.cssText = `
       width:${size}px; height:${size}px;
-      top:${Math.random()*100}%;
-      left:${Math.random()*100}%;
-      --d:${(Math.random()*4+2).toFixed(1)}s;
-      --o:${(Math.random()*0.5+0.1).toFixed(2)};
-      animation-delay:${(Math.random()*5).toFixed(1)}s;
+      top:${Math.random() * 100}%;
+      left:${Math.random() * 100}%;
+      --d:${(Math.random() * 4 + 2).toFixed(1)}s;
+      --o:${(Math.random() * 0.5 + 0.1).toFixed(2)};
+      animation-delay:${(Math.random() * 5).toFixed(1)}s;
     `;
     container.appendChild(s);
   }
