@@ -25,12 +25,15 @@ const angelAudio = document.getElementById("angel-audio");
   angelAudio.loop   = true;
   angelAudio.volume = 0.4;
 
-  // Try autoplay; fall back to first click
-  angelAudio.play().catch(() => {
-    document.addEventListener("click", () => {
-      angelAudio.play().catch(() => {});
-    }, { once: true });
-  });
+  // Unlock audio context on first user interaction
+  const unlock = () => {
+    angelAudio.play().catch(() => {});
+    document.removeEventListener("click", unlock);
+    document.removeEventListener("keydown", unlock);
+  };
+
+  document.addEventListener("click", unlock);
+  document.addEventListener("keydown", unlock);
 
   userInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
