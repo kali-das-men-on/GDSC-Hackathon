@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 const ELEVEN_KEY     = process.env.ELEVENLABS_API_KEY;
 const ELEVEN_VOICE   = process.env.ELEVENLABS_VOICE_ID || "bFrjFL4nlpeYNwNRhXxq";
-const OR_MODEL       = "nousresearch/hermes-3-llama-3.1-405b:free";
+const OR_MODEL       = "openrouter/free";
 
 const GARY_PROMPT = readFileSync(join(__dirname, "gary-prompt.txt"), "utf-8").trim();
 
