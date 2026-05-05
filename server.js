@@ -10,75 +10,40 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
-const ELEVEN_KEY     = process.env.ELEVENLABS_API_KEY;
-const ELEVEN_VOICE   = process.env.ELEVENLABS_VOICE_ID || "bFrjFL4nlpeYNwNRhXxq";
-const OR_MODEL       = "openrouter/free";
+const ELEVEN_KEY   = process.env.ELEVENLABS_API_KEY;
+const ELEVEN_VOICE = process.env.ELEVENLABS_VOICE_ID || "bFrjFL4nlpeYNwNRhXxq";
 
-const GARY_PROMPT = readFileSync(join(__dirname, "gary-prompt.txt"), "utf-8").trim();
+// ── Load and parse Gary responses from txt ──
+const rawPrompt = readFileSync(join(__dirname, "gary-prompt.txt"), "utf-8");
+const GARY_RESPONSES = rawPrompt
+  .split("\n")
+  .map(l => l.trim())
+  .filter(l => l.startsWith('"') && l.endsWith('"'))
+  .map(l => l.slice(1, -1));
+
+console.log(`Gary loaded ${GARY_RESPONSES.length} responses. Gary does not care.`);
 
 app.use(express.json());
 app.use(express.static(__dirname));
 app.use("/files", express.static(join(__dirname, "files")));
 
-app.get("/api/config", (req, res) => {
-  res.json({ openrouter: !!OPENROUTER_KEY, elevenlabs: !!ELEVEN_KEY, model: OR_MODEL });
+// ── Random Gary response ──
+app.post("/api/gary", (req, res) => {
+  const reply = GARY_RESPONSES[Math.floor(Math.random() * GARY_RESPONSES.length)];
+  res.json({ reply });
 });
 
-app.post("/api/gary", async (req, res) => {
-  if (!OPENROUTER_KEY) return res.status(500).json({ error: "OPENROUTER_API_KEY not set in .env" });
-
-  const { history = [], userText } = req.body;
-  if (!userText) return res.status(400).json({ error: "userText required" });
-
-  const messages = [
-    { role: "system", content: GARY_PROMPT },
-    ...history,
-    { role: "user", content: userText }
-  ];
-
-  try {
-    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENROUTER_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/kali-das-men-on/GDSC-Hackathon",
-        "X-Title": "Vent to Gary"
-      },
-      body: JSON.stringify({ model: OR_MODEL, messages, temperature: 0.95, max_tokens: 100 })
-    });
-
-    const data = await upstream.json();
-
-    if (!upstream.ok) {
-      console.error("OpenRouter error:", data);
-      return res.status(upstream.status).json({ error: data?.error?.message || "OpenRouter error" });
-    }
-
-    const reply = data?.choices?.[0]?.message?.content?.trim();
-    if (!reply) return res.status(500).json({ error: "Gary returned nothing. Gary does not apologize." });
-
-    res.json({
-      reply,
-      newUserEntry:  { role: "user",      content: userText },
-      newModelEntry: { role: "assistant", content: reply }
-    });
-
-  } catch (err) {
-    console.error("OpenRouter fetch error:", err);
-    res.status(500).json({ error: "Gary could not reach the cosmos." });
-  }
-});
-
+// ── ElevenLabs TTS ──
 app.post("/api/tts", async (req, res) => {
   if (!ELEVEN_KEY) return res.status(500).json({ error: "ELEVENLABS_API_KEY not set in .env" });
 
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: "text required" });
 
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE}`;
+
   try {
-    const upstream = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE}`, {
+    const upstream = await fetch(url, {
       method: "POST",
       headers: {
         "xi-api-key": ELEVEN_KEY,
@@ -88,7 +53,12 @@ app.post("/api/tts", async (req, res) => {
       body: JSON.stringify({
         text,
         model_id: "eleven_monolingual_v1",
-        voice_settings: { stability: 0.45, similarity_boost: 0.82, style: 0.3, use_speaker_boost: true }
+        voice_settings: {
+          stability: 0.45,
+          similarity_boost: 0.82,
+          style: 0.3,
+          use_speaker_boost: true
+        }
       })
     });
 
@@ -112,8 +82,6 @@ app.post("/api/tts", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\nGary is on port ${PORT}. Gary does not care.\n`);
-  if (!OPENROUTER_KEY) console.warn("⚠  OPENROUTER_API_KEY missing from .env");
-  if (!ELEVEN_KEY)     console.warn("⚠  ELEVENLABS_API_KEY missing from .env");
-  if (OPENROUTER_KEY && ELEVEN_KEY) console.log("✅ All keys loaded. Gary is ready.\n");
+  console.log(`Gary is on port ${PORT}. Gary does not care.`);
+  if (!ELEVEN_KEY) console.warn("⚠  ELEVENLABS_API_KEY missing from .env");
 });
